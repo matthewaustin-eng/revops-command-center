@@ -27,7 +27,13 @@ _spreadsheet = None
 def get_client():
     global _client
     if _client is None:
-        creds = Credentials.from_service_account_file(KEY_PATH, scopes=SCOPES)
+        import json as _json
+        sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        if sa_json:
+            info = _json.loads(sa_json)
+            creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        else:
+            creds = Credentials.from_service_account_file(KEY_PATH, scopes=SCOPES)
         _client = gspread.authorize(creds)
     return _client
 
