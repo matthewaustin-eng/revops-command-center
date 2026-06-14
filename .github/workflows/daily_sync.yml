@@ -1,0 +1,51 @@
+name: Daily RevOps Sync
+
+on:
+  schedule:
+    # 6:45 AM EST = 11:45 UTC (Nov–Mar) / 10:45 UTC (Mar–Nov, EDT)
+    # Using 11:45 UTC year-round (acceptable 1h drift in summer)
+    - cron: '45 11 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Manual trigger reason'
+        required: false
+        default: 'manual'
+
+jobs:
+  sync:
+    name: Extract signals and update Sheets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+      GOOGLE_OAUTH_CREDENTIALS: ${{ secrets.GOOGLE_OAUTH_CREDENTIALS }}
+      SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily sync
+        run: python3 -m scripts.daily_sync
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-failure-${{ github.run_id }}
+          path: |
+            *.log
+          retention-days: 7

@@ -1,0 +1,8 @@
+revops-command-center-499414-7f64e03b383c.json
+.env
+.oauth_creds.json
+.claude/
+__pycache__/
+*.pyc
+.DS_Store
+*.log

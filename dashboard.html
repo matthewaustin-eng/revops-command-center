@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RevOps Command Center</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --border: #e2e6ea;
+    --text: #1a1f2e;
+    --text-muted: #6c757d;
+    --header-bg: #1a1f2e;
+    --header-text: #ffffff;
+    --accent: #4361ee;
+    --accent-hover: #3451d1;
+
+    --p1: #dc3545;
+    --p1-bg: #fff1f1;
+    --p2: #fd7e14;
+    --p2-bg: #fff8f1;
+    --p3: #4361ee;
+    --p3-bg: #f0f3ff;
+    --p4: #adb5bd;
+    --p4-bg: #f8f9fa;
+
+    --active: #198754;
+    --active-bg: #d1e7dd;
+    --waiting: #0d6efd;
+    --waiting-bg: #cfe2ff;
+    --blocked: #dc3545;
+    --blocked-bg: #f8d7da;
+    --monitoring: #6f42c1;
+    --monitoring-bg: #e8d8ff;
+    --closed: #6c757d;
+    --closed-bg: #e2e3e5;
+
+    --sidebar-w: clamp(180px, 18vw, 240px);
+    --detail-w: clamp(300px, 30vw, 420px);
+    --topbar-h: 56px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOP BAR ── */
+  #topbar {
+    height: var(--topbar-h);
+    background: var(--header-bg);
+    color: var(--header-text);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+  .brand {
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .brand span { color: #4cc9f0; }
+  #stats-bar {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.6);
+  }
+  .stat-chip {
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 2px 10px;
+    white-space: nowrap;
+  }
+  .stat-chip b { color: rgba(255,255,255,0.95); }
+  #topbar-actions { display: flex; align-items: center; gap: 8px; }
+  #sync-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  #sync-btn:hover { background: rgba(255,255,255,0.2); }
+  #cached-at { font-size: 0.72rem; color: rgba(255,255,255,0.4); white-space: nowrap; }
+
+  /* ── LAYOUT ── */
+  #layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding: 12px 0;
+  }
+  .filter-section { padding: 0 12px 12px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .filter-section:last-child { border-bottom: none; }
+  .filter-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 8px 0 6px;
+  }
+  #search-box {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #search-box:focus { border-color: var(--accent); }
+
+  .filter-options { display: flex; flex-direction: column; gap: 3px; }
+  .filter-option {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 2px 0;
+    user-select: none;
+  }
+  .filter-option input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
+  .filter-option .badge { margin-left: auto; font-size: 0.7rem; background: var(--bg); border-radius: 10px; padding: 0 6px; color: var(--text-muted); }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    padding: 2px 0;
+    cursor: pointer;
+  }
+  .toggle { position: relative; width: 34px; height: 18px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--border);
+    border-radius: 18px;
+    transition: background 0.2s;
+  }
+  .toggle-slider::before {
+    content: "";
+    position: absolute;
+    height: 12px; width: 12px;
+    left: 3px; top: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
+
+  #clear-filters-btn {
+    width: 100%;
+    margin-top: 4px;
+    padding: 5px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  #clear-filters-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── TABLE CONTAINER ── */
+  #table-container {
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+  }
+  #result-count { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; padding-left: 2px; }
+
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--surface);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    font-size: 0.82rem;
+  }
+  thead tr {
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  th {
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  th:hover { color: var(--text); }
+  th.sorted { color: var(--accent); }
+  th .sort-arrow { display: inline-block; margin-left: 3px; opacity: 0.5; }
+  th.sorted .sort-arrow { opacity: 1; }
+
+  tbody tr {
+    border-left: 4px solid transparent;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  tbody tr:hover { background: #f8faff; }
+  tbody tr.selected { background: #eef1ff; }
+  tbody tr.p1 { border-left-color: var(--p1); }
+  tbody tr.p2 { border-left-color: var(--p2); }
+  tbody tr.p3 { border-left-color: var(--p3); }
+  tbody tr.p4 { border-left-color: var(--p4); }
+
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    max-width: 280px;
+  }
+  td.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* priority badge */
+  .pri-badge {
+    display: inline-block;
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pri-badge.p1 { background: var(--p1-bg); color: var(--p1); }
+  .pri-badge.p2 { background: var(--p2-bg); color: var(--p2); }
+  .pri-badge.p3 { background: var(--p3-bg); color: var(--p3); }
+  .pri-badge.p4 { background: var(--p4-bg); color: var(--p4); }
+  .pri-badge.none { background: var(--bg); color: var(--text-muted); }
+
+  /* status badge */
+  .status-badge {
+    display: inline-block;
+    border-radius: 12px;
+    padding: 1px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-badge.active    { background: var(--active-bg);     color: var(--active); }
+  .status-badge.waiting   { background: var(--waiting-bg);    color: var(--waiting); }
+  .status-badge.blocked   { background: var(--blocked-bg);    color: var(--blocked); }
+  .status-badge.monitoring{ background: var(--monitoring-bg); color: var(--monitoring); }
+  .status-badge.closed    { background: var(--closed-bg);     color: var(--closed); }
+
+  .project-name { font-weight: 600; color: var(--text); }
+  .action-text { color: #333; }
+  .est-time { color: var(--accent); font-size: 0.75rem; white-space: nowrap; }
+  .tag-chip {
+    display: inline-block;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    margin: 1px;
+    white-space: nowrap;
+  }
+  .date-cell { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
+  .overdue { color: var(--p1); font-weight: 600; }
+
+  /* empty state */
+  #empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+    display: none;
+  }
+  #empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+  /* ── DETAIL PANEL ── */
+  #detail-panel {
+    width: var(--detail-w);
+    margin-right: calc(-1 * var(--detail-w));
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(var(--detail-w));
+    transition: transform 0.25s ease, margin-right 0.25s ease;
+  }
+  #detail-panel.open { transform: translateX(0); margin-right: 0; }
+
+  #detail-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 5;
+  }
+  #detail-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 0 4px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  #detail-close:hover { color: var(--text); }
+  #detail-body { padding: 16px; flex: 1; }
+
+  .detail-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-section:last-child { border-bottom: none; }
+  .detail-section-title {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 10px;
+  }
+  .field-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); }
+  .field-value { font-size: 0.85rem; color: var(--text); line-height: 1.4; }
+  .field-value.placeholder { color: var(--text-muted); font-style: italic; }
+
+  .editable-field {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 0.83rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s;
+    background: var(--surface);
+    color: var(--text);
+    resize: vertical;
+  }
+  .editable-field:focus { border-color: var(--accent); }
+  select.editable-field { cursor: pointer; }
+
+  .btn {
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-danger { background: #fff1f1; color: var(--p1); border: 1px solid var(--p1); }
+  .btn-danger:hover { background: var(--p1); color: white; }
+  .btn-sm { padding: 3px 10px; font-size: 0.75rem; }
+
+  .action-box {
+    background: #fffbf0;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+  .action-text-big { font-size: 0.85rem; color: var(--text); line-height: 1.4; margin-bottom: 6px; }
+  .action-meta { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px; }
+  .action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  #mark-done-form { margin-top: 10px; display: none; }
+  #mark-done-form .field-row { margin-bottom: 8px; }
+
+  .saving-indicator {
+    font-size: 0.72rem;
+    color: var(--accent);
+    margin-left: 6px;
+    display: none;
+  }
+
+  #project-name-display {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+    margin-bottom: 4px;
+  }
+
+  /* ── INLINE EDITING (table cells) ── */
+  .inline-select {
+    border: none;
+    background: transparent;
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 0;
+    color: inherit;
+    outline: none;
+  }
+  .inline-select:focus { outline: 1px solid var(--accent); border-radius: 3px; }
+
+  /* ── TOAST ── */
+  #toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 9999;
+  }
+  .toast {
+    background: var(--text);
+    color: white;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    animation: slideUp 0.2s ease;
+    max-width: 320px;
+  }
+  .toast.error { background: var(--p1); }
+  .toast.success { background: var(--active); }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── LOADING ── */
+  #loading-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(240,242,245,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    flex-direction: column;
+    gap: 12px;
+  }
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading-overlay.hidden { display: none; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── SIDEBAR TOGGLE (shown on narrow screens) ── */
+  #sidebar-toggle {
+    display: none;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  #sidebar-toggle:hover { background: rgba(255,255,255,0.2); }
+
+  /* ── SIDEBAR OVERLAY BACKDROP ── */
+  #sidebar-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    top: var(--topbar-h);
+    background: rgba(0,0,0,0.35);
+    z-index: 49;
+  }
+  #sidebar-backdrop.visible { display: block; }
+
+  /* ── RESPONSIVE: medium (sidebar scales, detail panel narrows) ── */
+  @media (max-width: 1200px) {
+    td.truncate { max-width: 160px; }
+    td { max-width: 200px; }
+  }
+
+  /* ── RESPONSIVE: compact (sidebar becomes overlay) ── */
+  @media (max-width: 960px) {
+    #sidebar-toggle { display: inline-flex; align-items: center; }
+
+    #sidebar {
+      position: fixed;
+      left: 0;
+      top: var(--topbar-h);
+      bottom: 0;
+      width: 240px;
+      z-index: 50;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+      box-shadow: 4px 0 20px rgba(0,0,0,0.2);
+    }
+    #sidebar.sidebar-open { transform: translateX(0); }
+
+    #layout { overflow: auto; }
+    #table-container { min-width: 0; }
+    td.truncate { max-width: 140px; }
+  }
+
+  /* ── RESPONSIVE: narrow (detail panel also becomes overlay) ── */
+  @media (max-width: 720px) {
+    #detail-panel {
+      position: fixed;
+      right: 0;
+      top: var(--topbar-h);
+      bottom: 0;
+      width: min(var(--detail-w), 92vw);
+      z-index: 60;
+      transform: translateX(100%);
+      box-shadow: -4px 0 20px rgba(0,0,0,0.2);
+    }
+    #detail-panel.open { transform: translateX(0); }
+
+    th, td { padding: 6px 8px; font-size: 0.75rem; }
+    td.truncate { max-width: 110px; }
+    .stat-chip { display: none; }
+    #cached-at { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  Loading projects…
+</div>
+
+<!-- TOP BAR -->
+<header id="topbar">
+  <button id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle filters">☰</button>
+  <div class="brand">RevOps <span>Command Center</span></div>
+  <div id="stats-bar"></div>
+  <div id="topbar-actions">
+    <button id="sync-btn" onclick="syncFromSheets()">↻ Refresh</button>
+    <span id="cached-at"></span>
+  </div>
+</header>
+
+<!-- LAYOUT -->
+<div id="layout">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+
+    <div class="filter-section">
+      <div class="filter-label">Search</div>
+      <input id="search-box" type="text" placeholder="Project name, summary, notes…" oninput="applyFilters()">
+    </div>
+
+    <div class="filter-section">
+      <div class="toggle-row" onclick="toggleFilter('has-action')">
+        <span>Has Action Today</span>
+        <label class="toggle" onclick="event.stopPropagation()">
+          <input type="checkbox" id="filter-has-action" onchange="applyFilters()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Priority</div>
+      <div class="filter-options" id="filter-priority"></div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Status</div>
+      <div class="filter-options" id="filter-status"></div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Bucket</div>
+      <div class="filter-options" id="filter-bucket"></div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Next Step Owner</div>
+      <div class="filter-options" id="filter-owner"></div>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-label">Tags</div>
+      <div class="filter-options" id="filter-tags"></div>
+    </div>
+
+    <div class="filter-section">
+      <button id="clear-filters-btn" onclick="clearFilters()">Clear all filters</button>
+    </div>
+
+  </aside>
+
+  <!-- TABLE -->
+  <div id="table-container">
+    <div id="result-count"></div>
+    <table id="project-table">
+      <thead>
+        <tr>
+          <th onclick="sortBy('priority')" data-col="priority">Priority <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('project_name')" data-col="project_name">Project <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('high_level_bucket')" data-col="high_level_bucket">Bucket <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('status')" data-col="status">Status <span class="sort-arrow">↕</span></th>
+          <th>Action Needed</th>
+          <th onclick="sortBy('estimated_time')" data-col="estimated_time">Est. <span class="sort-arrow">↕</span></th>
+          <th>Next Step</th>
+          <th onclick="sortBy('next_step_owner')" data-col="next_step_owner">Owner <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('next_step_due')" data-col="next_step_due">Due <span class="sort-arrow">↕</span></th>
+          <th onclick="sortBy('last_signal_date')" data-col="last_signal_date">Last Signal <span class="sort-arrow">↕</span></th>
+          <th>Tags</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div id="empty-state">
+      <div class="icon">🔍</div>
+      <div>No projects match your filters.</div>
+    </div>
+  </div>
+
+  <!-- DETAIL PANEL -->
+  <div id="detail-panel">
+    <div id="detail-header">
+      <div id="detail-badges"></div>
+      <button id="detail-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div id="detail-body">
+      <!-- dynamically populated -->
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+let allProjects = [];
+let filteredProjects = [];
+let selectedRow = null;
+let sortCol = 'priority';
+let sortDir = 1; // 1 = asc, -1 = desc
+
+const PRIORITY_ORDER = { 'P1 — Critical': 1, 'P2 — High': 2, 'P3 — Normal': 3, 'P4 — Low': 4, '': 9 };
+const BUCKET_ABBREV = {
+  'Account Strategy & Execution': 'Account Strategy',
+  'Segment Strategy': 'Segment Strategy',
+  'Cross-Functional Enablement & Implementation': 'Cross-Functional',
+  'Commercial Operations & Infrastructure': 'CommOps',
+};
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+async function init() {
+  await loadProjects();
+  buildFilters();
+  applyFilters();
+  document.getElementById('loading-overlay').classList.add('hidden');
+}
+
+async function loadProjects() {
+  try {
+    const res = await fetch('/api/projects');
+    const data = await res.json();
+    allProjects = data.projects || [];
+    if (data.cached_at) {
+      document.getElementById('cached-at').textContent = 'Updated ' + formatTime(data.cached_at);
+    }
+    return allProjects;
+  } catch (e) {
+    showToast('Could not load projects — is serve.py running?', 'error');
+    throw e;
+  }
+}
+
+async function syncFromSheets() {
+  const btn = document.getElementById('sync-btn');
+  btn.disabled = true;
+  btn.textContent = '↻ Syncing…';
+  try {
+    const res = await fetch('/api/sync', { method: 'POST' });
+    const data = await res.json();
+    await loadProjects();
+    buildFilters();
+    applyFilters();
+    showToast(`Refreshed — ${data.count} projects loaded`, 'success');
+  } catch (e) {
+    showToast('Sync failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Refresh';
+  }
+}
+
+// ── FILTERS ──────────────────────────────────────────────────────────────
+function buildFilters() {
+  buildCheckboxFilter('filter-priority', 'priority',
+    ['P1 — Critical', 'P2 — High', 'P3 — Normal', 'P4 — Low', '']);
+  buildCheckboxFilter('filter-status', 'status',
+    ['Active', 'Waiting', 'Blocked', 'Monitoring', 'Closed', '']);
+  buildCheckboxFilter('filter-bucket', 'high_level_bucket', uniqueValues('high_level_bucket'));
+  buildCheckboxFilter('filter-owner', 'next_step_owner', uniqueValues('next_step_owner'));
+  buildCheckboxFilter('filter-tags', 'tags', uniqueTags());
+}
+
+function uniqueValues(field) {
+  const vals = [...new Set(allProjects.map(p => p[field] || ''))].sort();
+  return vals;
+}
+
+function uniqueTags() {
+  const tags = new Set();
+  allProjects.forEach(p => {
+    if (p.tags) {
+      p.tags.split('|').forEach(t => { const tr = t.trim(); if (tr) tags.add(tr); });
+    }
+  });
+  return [...tags].sort();
+}
+
+function buildCheckboxFilter(containerId, field, values) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  values.forEach(val => {
+    const count = allProjects.filter(p => {
+      if (field === 'tags') return (p.tags || '').split('|').map(t=>t.trim()).includes(val);
+      return (p[field] || '') === val;
+    }).length;
+    if (!count && val !== '') return;
+
+    const label = document.createElement('label');
+    label.className = 'filter-option';
+    const displayVal = field === 'high_level_bucket' ? (BUCKET_ABBREV[val] || val) : (val || '(blank)');
+    label.innerHTML = `
+      <input type="checkbox" class="filter-cb" data-field="${field}" data-value="${escHtml(val)}" onchange="applyFilters()">
+      <span>${escHtml(displayVal)}</span>
+      <span class="badge">${count}</span>
+    `;
+    container.appendChild(label);
+  });
+}
+
+function getActiveFilters() {
+  const filters = {};
+  document.querySelectorAll('.filter-cb:checked').forEach(cb => {
+    const f = cb.dataset.field;
+    if (!filters[f]) filters[f] = [];
+    filters[f].push(cb.dataset.value);
+  });
+  return filters;
+}
+
+function applyFilters() {
+  const search = document.getElementById('search-box').value.toLowerCase();
+  const hasAction = document.getElementById('filter-has-action').checked;
+  const activeFilters = getActiveFilters();
+
+  filteredProjects = allProjects.filter(p => {
+    // Has action
+    if (hasAction && !p.what_matt_needs_to_do) return false;
+
+    // Search
+    if (search) {
+      const haystack = [p.project_name, p.summary, p.notes, p.tags].join(' ').toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+
+    // Checkbox filters
+    for (const [field, vals] of Object.entries(activeFilters)) {
+      if (field === 'tags') {
+        const projectTags = (p.tags || '').split('|').map(t => t.trim());
+        if (!vals.some(v => projectTags.includes(v))) return false;
+      } else {
+        if (!vals.includes(p[field] || '')) return false;
+      }
+    }
+
+    return true;
+  });
+
+  // Sort
+  filteredProjects.sort((a, b) => {
+    let av = a[sortCol] || '';
+    let bv = b[sortCol] || '';
+    if (sortCol === 'priority') {
+      av = PRIORITY_ORDER[av] ?? 9;
+      bv = PRIORITY_ORDER[bv] ?? 9;
+      return (av - bv) * sortDir;
+    }
+    return av.localeCompare(bv) * sortDir;
+  });
+
+  renderTable();
+  updateStats();
+}
+
+function clearFilters() {
+  document.getElementById('search-box').value = '';
+  document.getElementById('filter-has-action').checked = false;
+  document.querySelectorAll('.filter-cb').forEach(cb => cb.checked = false);
+  applyFilters();
+}
+
+function toggleFilter(id) {
+  const cb = document.getElementById('filter-' + id);
+  cb.checked = !cb.checked;
+  applyFilters();
+}
+
+// ── SORT ─────────────────────────────────────────────────────────────────
+function sortBy(col) {
+  if (sortCol === col) {
+    sortDir *= -1;
+  } else {
+    sortCol = col;
+    sortDir = 1;
+  }
+  document.querySelectorAll('th').forEach(th => {
+    th.classList.remove('sorted');
+    const arrow = th.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = '↕';
+  });
+  const activeHeader = document.querySelector(`th[data-col="${col}"]`);
+  if (activeHeader) {
+    activeHeader.classList.add('sorted');
+    const arrow = activeHeader.querySelector('.sort-arrow');
+    if (arrow) arrow.textContent = sortDir === 1 ? '↑' : '↓';
+  }
+  applyFilters();
+}
+
+// ── TABLE RENDER ──────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+  document.getElementById('result-count').textContent =
+    `${filteredProjects.length} of ${allProjects.length} projects`;
+
+  if (!filteredProjects.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = filteredProjects.map(p => {
+    const priClass = priToClass(p.priority);
+    const due = p.next_step_due;
+    const isOverdue = due && new Date(due) < new Date() && p.status !== 'Closed';
+
+    return `<tr class="${priClass}" data-row="${p._row}" onclick="openDetail(${p._row})">
+      <td><span class="pri-badge ${priClass}">${priLabel(p.priority)}</span></td>
+      <td><span class="project-name">${escHtml(p.project_name || '')}</span></td>
+      <td class="truncate" title="${escHtml(p.high_level_bucket || '')}">${escHtml(BUCKET_ABBREV[p.high_level_bucket] || p.high_level_bucket || '')}</td>
+      <td><span class="status-badge ${statusClass(p.status)}">${escHtml(p.status || '')}</span></td>
+      <td class="truncate action-text" title="${escHtml(p.what_matt_needs_to_do || '')}">${escHtml(p.what_matt_needs_to_do || '')}</td>
+      <td><span class="est-time">${escHtml(p.estimated_time || '')}</span></td>
+      <td class="truncate" title="${escHtml(p.next_step || '')}">${escHtml(p.next_step || '')}</td>
+      <td class="truncate">${escHtml(p.next_step_owner || '')}</td>
+      <td class="date-cell ${isOverdue ? 'overdue' : ''}">${formatDate(due)}</td>
+      <td class="date-cell">${formatDate(p.last_signal_date)}</td>
+      <td>${renderTags(p.tags)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderTags(tags) {
+  if (!tags) return '';
+  return tags.split('|').map(t => t.trim()).filter(Boolean)
+    .map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('');
+}
+
+function updateStats() {
+  const p1 = allProjects.filter(p => p.priority === 'P1 — Critical').length;
+  const hasAction = allProjects.filter(p => p.what_matt_needs_to_do).length;
+  const active = allProjects.filter(p => p.status === 'Active').length;
+  document.getElementById('stats-bar').innerHTML = `
+    <span class="stat-chip"><b>${p1}</b> P1 critical</span>
+    <span class="stat-chip"><b>${hasAction}</b> with actions</span>
+    <span class="stat-chip"><b>${active}</b> active</span>
+    <span class="stat-chip"><b>${allProjects.length}</b> total</span>
+  `;
+}
+
+// ── DETAIL PANEL ──────────────────────────────────────────────────────────
+function openDetail(row) {
+  const project = allProjects.find(p => p._row === row);
+  if (!project) return;
+  selectedRow = row;
+
+  // Highlight row
+  document.querySelectorAll('tbody tr').forEach(tr => tr.classList.remove('selected'));
+  const tr = document.querySelector(`tr[data-row="${row}"]`);
+  if (tr) tr.classList.add('selected');
+
+  renderDetail(project);
+  document.getElementById('detail-panel').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+  selectedRow = null;
+  document.querySelectorAll('tbody tr').forEach(tr => tr.classList.remove('selected'));
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const isOpen = sidebar.classList.toggle('sidebar-open');
+  backdrop.classList.toggle('visible', isOpen);
+}
+
+function renderDetail(p) {
+  // Header badges
+  document.getElementById('detail-badges').innerHTML = `
+    <span class="tag-chip">${escHtml(BUCKET_ABBREV[p.high_level_bucket] || p.high_level_bucket || 'No Bucket')}</span>
+    <span class="status-badge ${statusClass(p.status)}" style="margin-left:6px">${escHtml(p.status || 'No Status')}</span>
+    <span class="pri-badge ${priToClass(p.priority)}" style="margin-left:6px">${priLabel(p.priority)}</span>
+  `;
+
+  const body = document.getElementById('detail-body');
+  body.innerHTML = `
+
+    <!-- PROJECT INFO -->
+    <div style="margin-bottom:16px">
+      <div id="project-name-display">${escHtml(p.project_name || '')}</div>
+      <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;margin-top:4px">${escHtml(p.summary || '')}</div>
+    </div>
+
+    <!-- CURRENT ACTION -->
+    <div class="detail-section">
+      <div class="detail-section-title">Current Action</div>
+      ${p.what_matt_needs_to_do
+        ? `<div class="action-box">
+            <div class="action-text-big">${escHtml(p.what_matt_needs_to_do)}</div>
+            ${p.estimated_time ? `<div class="action-meta">⏱ ${escHtml(p.estimated_time)}</div>` : ''}
+            <div class="action-buttons">
+              <button class="btn btn-primary btn-sm" onclick="showMarkDoneForm()">✓ Mark Done</button>
+            </div>
+          </div>`
+        : `<div style="font-size:0.8rem;color:var(--text-muted);font-style:italic">No action needed right now.</div>`
+      }
+      <div id="mark-done-form">
+        <div style="font-size:0.78rem;font-weight:600;margin-bottom:8px;color:var(--text-muted)">What's the new next step? (optional)</div>
+        <div class="field-row">
+          <label class="field-label">New Next Step</label>
+          <textarea id="md-next-step" class="editable-field" rows="2" placeholder="Leave blank to keep current">${escHtml(p.next_step || '')}</textarea>
+        </div>
+        <div class="field-row">
+          <label class="field-label">New Owner</label>
+          <input id="md-owner" class="editable-field" value="${escHtml(p.next_step_owner || '')}">
+        </div>
+        <div class="field-row">
+          <label class="field-label">New Due Date</label>
+          <input id="md-due" type="date" class="editable-field" value="${escHtml(p.next_step_due || '')}">
+        </div>
+        <div class="action-buttons" style="margin-top:4px">
+          <button class="btn btn-primary btn-sm" onclick="submitMarkDone(${p._row}, '${escHtml(p.project_name || '')}')">Save & Clear Action</button>
+          <button class="btn btn-secondary btn-sm" onclick="hideMarkDoneForm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEXT STEP -->
+    <div class="detail-section">
+      <div class="detail-section-title">Next Step</div>
+      <div class="field-row">
+        <label class="field-label">Next Step <span class="saving-indicator" id="save-next_step">Saving…</span></label>
+        <textarea class="editable-field" rows="2" data-field="next_step" data-row="${p._row}"
+          onblur="saveField(this, '${escHtml(p.project_name || '')}')">${escHtml(p.next_step || '')}</textarea>
+      </div>
+      <div class="field-row">
+        <label class="field-label">Owner <span class="saving-indicator" id="save-next_step_owner">Saving…</span></label>
+        <input class="editable-field" data-field="next_step_owner" data-row="${p._row}"
+          value="${escHtml(p.next_step_owner || '')}"
+          onblur="saveField(this, '${escHtml(p.project_name || '')}')">
+      </div>
+      <div class="field-row">
+        <label class="field-label">Due Date <span class="saving-indicator" id="save-next_step_due">Saving…</span></label>
+        <input type="date" class="editable-field" data-field="next_step_due" data-row="${p._row}"
+          value="${escHtml(p.next_step_due || '')}"
+          onblur="saveField(this, '${escHtml(p.project_name || '')}')">
+      </div>
+    </div>
+
+    <!-- STATUS + PRIORITY -->
+    <div class="detail-section">
+      <div class="detail-section-title">Status & Priority</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field-row">
+          <label class="field-label">Status <span class="saving-indicator" id="save-status">Saving…</span></label>
+          <select class="editable-field" data-field="status" data-row="${p._row}"
+            onchange="saveField(this, '${escHtml(p.project_name || '')}')">
+            ${['Active','Waiting','Blocked','Monitoring','Closed'].map(s =>
+              `<option ${p.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field-row">
+          <label class="field-label">Priority <span class="saving-indicator" id="save-priority">Saving…</span></label>
+          <select class="editable-field" data-field="priority" data-row="${p._row}"
+            onchange="saveField(this, '${escHtml(p.project_name || '')}')">
+            <option value="">— Not set —</option>
+            ${['P1 — Critical','P2 — High','P3 — Normal','P4 — Low'].map(pr =>
+              `<option ${p.priority === pr ? 'selected' : ''}>${pr}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECT INFO -->
+    <div class="detail-section">
+      <div class="detail-section-title">Project Info</div>
+      <div class="field-row">
+        <label class="field-label">Project Owner <span class="saving-indicator" id="save-project_owner">Saving…</span></label>
+        <input class="editable-field" data-field="project_owner" data-row="${p._row}"
+          value="${escHtml(p.project_owner || '')}"
+          onblur="saveField(this, '${escHtml(p.project_name || '')}')">
+      </div>
+      <div class="field-row">
+        <label class="field-label">Key Partners</label>
+        <div class="field-value">${escHtml(p.key_partners || '—')}</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">Primary Source</label>
+        <div class="field-value">${escHtml(p.primary_source || '—')}</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">Date Added</label>
+        <div class="field-value">${escHtml(p.date_added || '—')}</div>
+      </div>
+      <div class="field-row">
+        <label class="field-label">Last Updated</label>
+        <div class="field-value">${escHtml(p.last_updated || '—')}</div>
+      </div>
+    </div>
+
+    <!-- LAST SIGNAL -->
+    ${(p.last_signal_date || p.last_signal_summary) ? `
+    <div class="detail-section">
+      <div class="detail-section-title">Last Signal</div>
+      <div class="field-row">
+        <label class="field-label">${escHtml(p.last_signal_date || '')}</label>
+        <div class="field-value">${escHtml(p.last_signal_summary || '')}</div>
+      </div>
+    </div>` : ''}
+
+    <!-- NOTES -->
+    <div class="detail-section">
+      <div class="detail-section-title">Notes <span class="saving-indicator" id="save-notes">Saving…</span></div>
+      <textarea class="editable-field" rows="4" data-field="notes" data-row="${p._row}"
+        placeholder="Free-form notes…"
+        onblur="saveField(this, '${escHtml(p.project_name || '')}')">${escHtml(p.notes || '')}</textarea>
+    </div>
+
+  `;
+}
+
+// ── SAVE ─────────────────────────────────────────────────────────────────
+async function saveField(el, projectName) {
+  const field = el.dataset.field;
+  const row = parseInt(el.dataset.row);
+  const value = el.value;
+
+  const indicator = document.getElementById('save-' + field);
+  if (indicator) indicator.style.display = 'inline';
+
+  try {
+    const res = await fetch(`/api/projects/${row}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: value, project_name: projectName }),
+    });
+    if (!res.ok) throw new Error('Server error');
+
+    // Update local state
+    const project = allProjects.find(p => p._row === row);
+    if (project) {
+      project[field] = value;
+      project.last_updated = new Date().toISOString().split('T')[0];
+    }
+
+    // Re-render the table row
+    const tr = document.querySelector(`tr[data-row="${row}"]`);
+    if (tr) {
+      const updated = allProjects.find(p => p._row === row);
+      if (updated) {
+        const priClass = priToClass(updated.priority);
+        tr.className = priClass;
+        tr.dataset.row = row;
+      }
+    }
+    applyFilters();
+
+    showToast('Saved', 'success');
+  } catch (e) {
+    showToast('Save failed — try again', 'error');
+  } finally {
+    if (indicator) indicator.style.display = 'none';
+  }
+}
+
+function showMarkDoneForm() {
+  document.getElementById('mark-done-form').style.display = 'block';
+}
+function hideMarkDoneForm() {
+  document.getElementById('mark-done-form').style.display = 'none';
+}
+
+async function submitMarkDone(row, projectName) {
+  const body = {
+    project_name: projectName,
+    next_step: document.getElementById('md-next-step')?.value || '',
+    next_step_owner: document.getElementById('md-owner')?.value || '',
+    next_step_due: document.getElementById('md-due')?.value || '',
+  };
+
+  try {
+    const res = await fetch(`/api/projects/${row}/mark-done`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('Server error');
+
+    const project = allProjects.find(p => p._row === row);
+    if (project) {
+      project.what_matt_needs_to_do = '';
+      project.estimated_time = '';
+      if (body.next_step) project.next_step = body.next_step;
+      if (body.next_step_owner) project.next_step_owner = body.next_step_owner;
+      if (body.next_step_due) project.next_step_due = body.next_step_due;
+      project.last_updated = new Date().toISOString().split('T')[0];
+    }
+
+    showToast('Action marked done', 'success');
+    renderDetail(project);
+    applyFilters();
+  } catch (e) {
+    showToast('Could not mark done — try again', 'error');
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function priToClass(pri) {
+  if (!pri) return 'p4';
+  const n = pri.charAt(1);
+  return ['1','2','3','4'].includes(n) ? `p${n}` : 'p4';
+}
+
+function priLabel(pri) {
+  if (!pri) return '—';
+  return pri.replace(' — ', ' '); // non-breaking space
+}
+
+function statusClass(status) {
+  if (!status) return '';
+  return status.toLowerCase().replace(/\s+/g, '-');
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch { return d; }
+}
+
+function formatTime(iso) {
+  if (!iso) return '';
+  try {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  } catch { return iso; }
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function showToast(msg, type = '') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = msg;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// ── KEYBOARD ─────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDetail();
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    document.getElementById('search-box').focus();
+  }
+});
+
+// ── START ─────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

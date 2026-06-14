@@ -1,0 +1,50 @@
+{
+  "user": {
+    "name": "Matt Austin",
+    "email": "matthew.austin@hicleo.com",
+    "timezone": "America/New_York",
+    "focus_block_start": "07:30",
+    "focus_block_end": "09:30",
+    "brief_delivery_time": "07:00"
+  },
+  "signal_windows": {
+    "gmail_lookback_hours": 24,
+    "slack_lookback_hours": 24,
+    "zoom_lookback_hours": 48,
+    "drive_lookback_hours": 24
+  },
+  "priority_overrides": {
+    "always_p1_projects": [
+      "Illumina 2027 Renewal",
+      "ThreeWires / Three Wire Systems Partner Contract Negotiation"
+    ],
+    "always_p1_senders": [
+      "alec.greenawalt@mercer.com",
+      "johnny.anderson@hicleo.com"
+    ]
+  },
+  "time_estimates": {
+    "short_email_reply": 3,
+    "substantive_email": 20,
+    "slack_reply": 2,
+    "doc_review_short": 5,
+    "doc_review_long": 20,
+    "meeting_prep": 20,
+    "pricing_model": 60,
+    "contract_redline": 45,
+    "proposal_section": 60
+  },
+  "brief_caps": {
+    "max_focus_block_items": 8,
+    "max_priority_actions": 5,
+    "max_waiting_on_others": 6
+  },
+  "new_project_detection": {
+    "enabled": true,
+    "min_signal_confidence": 0.7,
+    "commercial_keywords": [
+      "renewal", "proposal", "pricing", "PEPM", "EMY", "ROI",
+      "contract", "redline", "amendment", "reseller", "RFP", "deal desk"
+    ]
+  }
+}
