@@ -1,4 +1,5 @@
 import os
+import json
 import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
@@ -10,31 +11,32 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-KEY_PATH = os.getenv(
-    "GOOGLE_SERVICE_ACCOUNT_KEY_PATH",
-    "/Users/mattaustin/Documents/Rev-Ops-CommandCenter/revops-command-center-499414-7f64e03b383c.json",
-)
-
 SHEET_ID = os.getenv(
     "GOOGLE_SHEET_ID",
     "1d3QJCXcTNwWOI3xIAqPJ4pvx0AhdyzKk3NpK6mvKVUQ",
 )
 
+_LOCAL_KEY_PATH = "/Users/mattaustin/Documents/Rev-Ops-CommandCenter/revops-command-center-499414-7f64e03b383c.json"
+
 _client = None
 _spreadsheet = None
+
+
+def _build_credentials():
+    sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+    if sa_json:
+        print(f"sheets_client: using GOOGLE_SERVICE_ACCOUNT_JSON env var (len={len(sa_json)})")
+        info = json.loads(sa_json)
+        return Credentials.from_service_account_info(info, scopes=SCOPES)
+    key_path = os.getenv("GOOGLE_SERVICE_ACCOUNT_KEY_PATH", _LOCAL_KEY_PATH)
+    print(f"sheets_client: using key file {key_path}")
+    return Credentials.from_service_account_file(key_path, scopes=SCOPES)
 
 
 def get_client():
     global _client
     if _client is None:
-        import json as _json
-        sa_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-        if sa_json:
-            info = _json.loads(sa_json)
-            creds = Credentials.from_service_account_info(info, scopes=SCOPES)
-        else:
-            creds = Credentials.from_service_account_file(KEY_PATH, scopes=SCOPES)
-        _client = gspread.authorize(creds)
+        _client = gspread.authorize(_build_credentials())
     return _client
 
 
