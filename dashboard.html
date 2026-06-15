@@ -687,6 +687,25 @@
     color: var(--text-muted);
     margin: 16px 0 8px;
   }
+  /* Related Links */
+  .link-chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px;
+    font-size: 0.74rem; margin-bottom: 5px; background: var(--bg);
+  }
+  .link-chip a {
+    color: var(--accent); text-decoration: none; flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .link-chip a:hover { text-decoration: underline; }
+  .link-remove { cursor: pointer; color: var(--text-muted); font-size: 1rem; flex-shrink: 0; line-height: 1; }
+  .link-remove:hover { color: var(--p1); }
+  .add-link-inputs { display: flex; gap: 5px; margin-top: 6px; }
+  .add-link-inputs input {
+    font-size: 0.74rem; padding: 4px 7px;
+    border: 1px solid var(--border); border-radius: 4px;
+    background: var(--surface); color: var(--text);
+  }
 </style>
 </head>
 <body>
@@ -997,6 +1016,72 @@ function renderCandidates() {
   body.innerHTML = html;
 }
 
+// ── RELATED LINKS ─────────────────────────────────────────────────────────
+function _parseLinks(raw) {
+  return (raw || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const sep = l.indexOf(' | ');
+    return sep > -1 ? { label: l.slice(0, sep), url: l.slice(sep + 3) } : { label: l, url: l };
+  });
+}
+
+function _serializeLinks(links) {
+  return links.map(l => l.label !== l.url ? `${l.label} | ${l.url}` : l.url).join('\n');
+}
+
+function _renderLinksList(row, raw) {
+  const list = document.getElementById('related-links-list');
+  if (!list) return;
+  const links = _parseLinks(raw);
+  if (!links.length) {
+    list.innerHTML = '<div style="font-size:0.74rem;color:var(--text-muted);font-style:italic;margin-bottom:4px;">No links yet.</div>';
+    return;
+  }
+  list.innerHTML = links.map((l, i) => `
+    <div class="link-chip">
+      <a href="${escHtml(l.url)}" target="_blank" rel="noopener" title="${escHtml(l.url)}">${escHtml(l.label)}</a>
+      <span class="link-remove" onclick="removeLink(${row},${i})" title="Remove">×</span>
+    </div>`).join('');
+}
+
+async function removeLink(row, idx) {
+  const project = allProjects.find(p => p._row === row);
+  if (!project) return;
+  const links = _parseLinks(project.related_links || '');
+  links.splice(idx, 1);
+  const newVal = _serializeLinks(links);
+  project.related_links = newVal;
+  _renderLinksList(row, newVal);
+  await fetch(`/api/projects/${row}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ related_links: newVal, project_name: project.project_name }),
+  });
+}
+
+async function confirmAddLink(row, projectName) {
+  const labelEl = document.getElementById('new-link-label');
+  const urlEl   = document.getElementById('new-link-url');
+  const url   = (urlEl?.value || '').trim();
+  const label = (labelEl?.value || '').trim() || url;
+  if (!url) { urlEl.focus(); return; }
+
+  const project = allProjects.find(p => p._row === row);
+  if (!project) return;
+  const links = _parseLinks(project.related_links || '');
+  links.push({ label, url });
+  const newVal = _serializeLinks(links);
+  project.related_links = newVal;
+  labelEl.value = '';
+  urlEl.value = '';
+  document.getElementById('add-link-form').style.display = 'none';
+  _renderLinksList(row, newVal);
+  await fetch(`/api/projects/${row}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ related_links: newVal, project_name: projectName }),
+  });
+}
+
 // ── GENERATE BRIEF ────────────────────────────────────────────────────────
 async function generateBrief(row) {
   const btn = document.getElementById('brief-btn');
@@ -1015,6 +1100,12 @@ async function generateBrief(row) {
     btn.textContent = '✦ Generate Brief';
     status.style.display = 'inline';
     if (data.ok && data.url) {
+      // Auto-attach doc to Related Links
+      const project = allProjects.find(p => p._row === row);
+      if (project && data.related_links !== undefined) {
+        project.related_links = data.related_links;
+        _renderLinksList(row, data.related_links);
+      }
       status.innerHTML = `<a href="${data.url}" target="_blank" rel="noopener"
         style="color:var(--accent);text-decoration:none;font-weight:500;">Open Doc ↗</a>`;
     } else {
@@ -1438,7 +1529,28 @@ function renderDetail(p) {
         onblur="saveField(this, '${escHtml(p.project_name || '')}')">${escHtml(p.notes || '')}</textarea>
     </div>
 
+    <!-- RELATED LINKS -->
+    <div class="detail-section">
+      <div class="detail-section-title">Related Links</div>
+      <div id="related-links-list"></div>
+      <div id="add-link-form" style="display:none;">
+        <div class="add-link-inputs">
+          <input id="new-link-label" placeholder="Label (optional)" style="flex:0.55">
+          <input id="new-link-url" placeholder="https://…" style="flex:1">
+        </div>
+        <div class="action-buttons" style="margin-top:5px">
+          <button class="btn btn-primary btn-sm"
+            onclick="confirmAddLink(${p._row}, '${escHtml(p.project_name || '')}')">Add</button>
+          <button class="btn btn-secondary btn-sm"
+            onclick="document.getElementById('add-link-form').style.display='none'">Cancel</button>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" style="font-size:0.73rem;margin-top:4px;"
+        onclick="document.getElementById('add-link-form').style.display='block'">+ Add Link</button>
+    </div>
+
   `;
+  _renderLinksList(p._row, p.related_links || '');
 }
 
 // ── SAVE ─────────────────────────────────────────────────────────────────

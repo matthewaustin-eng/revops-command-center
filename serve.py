@@ -39,6 +39,7 @@ _cached_at = None
 EDITABLE_FIELDS = {
     "status", "priority", "project_owner", "next_step", "next_step_owner",
     "next_step_due", "what_matt_needs_to_do", "estimated_time", "notes",
+    "related_links",
 }
 
 
@@ -144,7 +145,15 @@ def api_generate_brief(row):
         from scripts.signal_extractor import get_google_credentials
         creds = get_google_credentials()
         result = create_brief_doc(cached, creds)
-        return jsonify({"ok": True, **result})
+
+        # Auto-attach doc URL to related_links
+        new_entry = f"{result['title']} | {result['url']}"
+        existing = (cached.get("related_links") or "").strip()
+        updated_links = (existing + "\n" + new_entry).strip() if existing else new_entry
+        update_project_fields(row, {"related_links": updated_links})
+        cached["related_links"] = updated_links
+
+        return jsonify({"ok": True, **result, "related_links": updated_links})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
