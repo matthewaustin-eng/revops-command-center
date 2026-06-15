@@ -33,6 +33,10 @@ def _build_credentials():
     return Credentials.from_service_account_file(key_path, scopes=SCOPES)
 
 
+def get_sa_credentials():
+    return _build_credentials()
+
+
 def get_client():
     global _client
     if _client is None:

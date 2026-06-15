@@ -23,7 +23,9 @@ from scripts.sheets_client import (
     update_project_fields,
     append_to_action_log,
     get_candidates,
+    get_sa_credentials,
 )
+from scripts.doc_builder import create_brief_doc
 
 app = Flask(__name__)
 CORS(app)
@@ -131,6 +133,19 @@ def api_mark_done(row):
         cached.update(updates)
 
     return jsonify({"ok": True})
+
+
+@app.route("/api/projects/<int:row>/brief", methods=["POST"])
+def api_generate_brief(row):
+    cached = find_cached_project(row)
+    if not cached:
+        abort(404, "Project not found")
+    try:
+        creds = get_sa_credentials()
+        result = create_brief_doc(cached, creds)
+        return jsonify({"ok": True, **result})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/candidates")

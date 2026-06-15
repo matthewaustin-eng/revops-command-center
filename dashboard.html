@@ -997,6 +997,39 @@ function renderCandidates() {
   body.innerHTML = html;
 }
 
+// ── GENERATE BRIEF ────────────────────────────────────────────────────────
+async function generateBrief(row) {
+  const btn = document.getElementById('brief-btn');
+  const status = document.getElementById('brief-status');
+  if (!btn) return;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+  status.style.display = 'none';
+  status.style.color = 'var(--text-muted)';
+
+  try {
+    const resp = await fetch(`/api/projects/${row}/brief`, { method: 'POST' });
+    const data = await resp.json();
+    btn.disabled = false;
+    btn.textContent = '✦ Generate Brief';
+    status.style.display = 'inline';
+    if (data.ok && data.url) {
+      status.innerHTML = `<a href="${data.url}" target="_blank" rel="noopener"
+        style="color:var(--accent);text-decoration:none;font-weight:500;">Open Doc ↗</a>`;
+    } else {
+      status.style.color = 'var(--p1)';
+      status.textContent = 'Error: ' + (data.error || 'unknown error');
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '✦ Generate Brief';
+    status.style.display = 'inline';
+    status.style.color = 'var(--p1)';
+    status.textContent = 'Could not reach server';
+  }
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 async function init() {
   await loadProjects();
@@ -1272,6 +1305,12 @@ function renderDetail(p) {
     <div style="margin-bottom:16px">
       <div id="project-name-display">${escHtml(p.project_name || '')}</div>
       <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;margin-top:4px">${escHtml(p.summary || '')}</div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-secondary btn-sm" id="brief-btn" onclick="generateBrief(${p._row})" style="font-size:0.75rem;">
+          ✦ Generate Brief
+        </button>
+        <span id="brief-status" style="font-size:0.75rem;display:none;"></span>
+      </div>
     </div>
 
     <!-- CURRENT ACTION -->
