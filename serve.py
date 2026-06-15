@@ -141,7 +141,8 @@ def api_generate_brief(row):
     if not cached:
         abort(404, "Project not found")
     try:
-        creds = get_sa_credentials()
+        from scripts.signal_extractor import get_google_credentials
+        creds = get_google_credentials()
         result = create_brief_doc(cached, creds)
         return jsonify({"ok": True, **result})
     except Exception as e:

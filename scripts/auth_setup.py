@@ -33,6 +33,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.send",
     "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/drive.file",
 ]
 
 CREDS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".oauth_creds.json")

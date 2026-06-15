@@ -41,6 +41,7 @@ def get_google_credentials():
         "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/gmail.send",
         "https://www.googleapis.com/auth/calendar.readonly",
+        "https://www.googleapis.com/auth/drive.file",
     ]
 
     raw_json = os.getenv("GOOGLE_OAUTH_CREDENTIALS")
