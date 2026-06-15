@@ -442,6 +442,22 @@
     line-height: 1.3;
     margin-bottom: 4px;
   }
+  #project-name-input {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+    margin-bottom: 4px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 2px 0;
+    border-bottom: 1px dashed transparent;
+    border-radius: 0;
+    transition: border-color 0.15s;
+  }
+  #project-name-input:hover { border-bottom-color: var(--border); }
+  #project-name-input:focus { outline: none; border-bottom-color: var(--accent); }
 
   /* ── INLINE EDITING (table cells) ── */
   .inline-select {
@@ -1394,7 +1410,9 @@ function renderDetail(p) {
 
     <!-- PROJECT INFO -->
     <div style="margin-bottom:16px">
-      <div id="project-name-display">${escHtml(p.project_name || '')}</div>
+      <input id="project-name-input" value="${escHtml(p.project_name || '')}"
+        onblur="saveProjectName(this, ${p._row})"
+        onkeydown="if(event.key==='Enter')this.blur()">
       <div style="font-size:0.8rem;color:var(--text-muted);line-height:1.5;margin-top:4px">${escHtml(p.summary || '')}</div>
       <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
         <button class="btn btn-secondary btn-sm" id="brief-btn" onclick="generateBrief(${p._row})" style="font-size:0.75rem;">
@@ -1554,6 +1572,28 @@ function renderDetail(p) {
 }
 
 // ── SAVE ─────────────────────────────────────────────────────────────────
+async function saveProjectName(input, row) {
+  const newName = input.value.trim();
+  const project = allProjects.find(p => p._row === row);
+  const oldName = project?.project_name || '';
+  if (!newName) { input.value = oldName; return; }
+  if (newName === oldName) return;
+
+  try {
+    await fetch(`/api/projects/${row}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_name: newName }),
+    });
+    if (project) project.project_name = newName;
+    // Update the table row
+    const tr = document.querySelector(`tr[data-row="${row}"]`);
+    if (tr) tr.querySelector('.project-name').textContent = newName;
+  } catch (e) {
+    input.value = oldName;
+  }
+}
+
 async function saveField(el, projectName) {
   const field = el.dataset.field;
   const row = parseInt(el.dataset.row);

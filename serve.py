@@ -39,7 +39,7 @@ _cached_at = None
 EDITABLE_FIELDS = {
     "status", "priority", "project_owner", "next_step", "next_step_owner",
     "next_step_due", "what_matt_needs_to_do", "estimated_time", "notes",
-    "related_links",
+    "related_links", "project_name",
 }
 
 
@@ -75,6 +75,9 @@ def api_projects():
 def api_update_project(row):
     body = request.get_json(silent=True) or {}
     updates = {k: v for k, v in body.items() if k in EDITABLE_FIELDS}
+    # project_name sent alongside other fields is a logging label — don't overwrite
+    if "project_name" in updates and len(updates) > 1:
+        del updates["project_name"]
     if not updates:
         abort(400, "No editable fields in request body")
 
