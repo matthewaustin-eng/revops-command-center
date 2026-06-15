@@ -33,14 +33,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv()
 
-# --- early env check (printed before any imports that use credentials) ---
-_SA_JSON = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
-print(f"GOOGLE_SERVICE_ACCOUNT_JSON set: {bool(_SA_JSON)} (length: {len(_SA_JSON)})")
-if not _SA_JSON:
-    print("ERROR: GOOGLE_SERVICE_ACCOUNT_JSON secret is missing or empty.")
-    print("  Go to: GitHub repo → Settings → Secrets → Actions")
-    print("  Add secret named exactly: GOOGLE_SERVICE_ACCOUNT_JSON")
-    sys.exit(1)
 
 
 def _write_service_account_json():

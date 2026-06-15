@@ -1,7 +1,6 @@
 import os
 import json
 import gspread
-print(f"[sheets_client] loading from: {__file__}")
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 

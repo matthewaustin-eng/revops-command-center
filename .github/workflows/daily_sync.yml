@@ -38,9 +38,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Debug - show checked-out sheets_client.py
-        run: head -45 scripts/sheets_client.py
-
       - name: Run daily sync
         run: python3 -m scripts.daily_sync
 
