@@ -103,6 +103,7 @@ def main():
         from signal_extractor import get_google_credentials, GmailExtractor, CalendarExtractor, SlackExtractor
 
     all_signals = []
+    creds = None
 
     try:
         creds = get_google_credentials()
@@ -225,7 +226,25 @@ def main():
         print(f"  Warning: action_log write failed: {e}")
 
     # -----------------------------------------------------------------------
-    # 8. Refresh Flask cache (local only — skip in Actions)
+    # 8. Send daily brief email
+    # -----------------------------------------------------------------------
+    try:
+        from scripts.brief_builder import send_brief
+    except ImportError:
+        from brief_builder import send_brief
+
+    if creds is not None:
+        try:
+            # Re-load projects so brief reflects what was just written
+            fresh_projects = get_all_projects()
+            send_brief(fresh_projects, creds, run_date=run_ts[:10])
+        except Exception as e:
+            print(f"  Warning: brief send failed: {e}")
+    else:
+        print("  Brief: skipped (no Google credentials)")
+
+    # -----------------------------------------------------------------------
+    # 9. Refresh Flask cache (local only — skip in Actions)
     # -----------------------------------------------------------------------
     if not os.getenv("GITHUB_ACTIONS"):
         try:
