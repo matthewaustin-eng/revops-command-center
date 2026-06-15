@@ -586,6 +586,107 @@
     .stat-chip { display: none; }
     #cached-at { display: none; }
   }
+
+  /* ── VIEW TOGGLE ── */
+  #view-toggle {
+    display: flex;
+    gap: 4px;
+    margin: 0 12px;
+  }
+  .view-btn {
+    padding: 4px 12px;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(255,255,255,0.7);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .view-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .view-btn.active { background: rgba(255,255,255,0.2); color: #fff; border-color: rgba(255,255,255,0.6); }
+  #candidates-badge {
+    display: inline-block;
+    background: #dc3545;
+    color: #fff;
+    border-radius: 9px;
+    padding: 0 5px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    margin-left: 4px;
+    vertical-align: middle;
+  }
+
+  /* ── CALENDAR VIEW ── */
+  .cal-section { margin-bottom: 24px; }
+  .cal-date-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    padding: 6px 0 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .cal-date-header.overdue { color: var(--p1); }
+  .cal-date-header.today { color: var(--accent); }
+  .cal-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: box-shadow 0.15s;
+  }
+  .cal-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .cal-card-left { flex-shrink: 0; }
+  .cal-card-body { flex: 1; min-width: 0; }
+  .cal-project-name { font-weight: 600; font-size: 0.82rem; color: var(--text); }
+  .cal-action { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cal-empty { color: var(--text-muted); font-size: 0.82rem; padding: 32px 0; text-align: center; }
+
+  /* ── SIGNALS VIEW ── */
+  .signal-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .signal-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .signal-source-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--p3-bg);
+    color: var(--p3);
+  }
+  .signal-subject { font-weight: 600; font-size: 0.82rem; color: var(--text); flex: 1; }
+  .signal-date { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; }
+  .signal-sender { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+  .signal-snippet { font-size: 0.78rem; color: var(--text); line-height: 1.45; }
+  .signal-empty { color: var(--text-muted); font-size: 0.82rem; padding: 32px 0; text-align: center; }
+  .signals-section-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-muted);
+    margin: 16px 0 8px;
+  }
 </style>
 </head>
 <body>
@@ -601,6 +702,13 @@
   <button id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle filters">☰</button>
   <div class="brand">RevOps <span>Command Center</span></div>
   <div id="stats-bar"></div>
+  <div id="view-toggle">
+    <button class="view-btn active" id="btn-table" onclick="setView('table')">Table</button>
+    <button class="view-btn" id="btn-calendar" onclick="setView('calendar')">Calendar</button>
+    <button class="view-btn" id="btn-signals" onclick="setView('signals')">
+      Signals <span id="candidates-badge" style="display:none"></span>
+    </button>
+  </div>
   <div id="topbar-actions">
     <button id="sync-btn" onclick="syncFromSheets()">↻ Refresh</button>
     <span id="cached-at"></span>
@@ -699,6 +807,16 @@
 
 </div>
 
+<!-- CALENDAR VIEW -->
+<div id="calendar-view" style="display:none; flex:1; overflow-y:auto; padding:16px 20px;">
+  <div id="calendar-body"></div>
+</div>
+
+<!-- SIGNALS / CANDIDATES VIEW -->
+<div id="signals-view" style="display:none; flex:1; overflow-y:auto; padding:16px 20px;">
+  <div id="signals-body"></div>
+</div>
+
 <!-- TOAST CONTAINER -->
 <div id="toast-container"></div>
 
@@ -717,6 +835,167 @@ const BUCKET_ABBREV = {
   'Cross-Functional Enablement & Implementation': 'Cross-Functional',
   'Commercial Operations & Infrastructure': 'CommOps',
 };
+
+// ── VIEW TOGGLE ───────────────────────────────────────────────────────────
+let _currentView = 'table';
+
+function setView(view) {
+  _currentView = view;
+  ['table', 'calendar', 'signals'].forEach(v => {
+    const btn = document.getElementById('btn-' + v);
+    if (btn) btn.classList.toggle('active', v === view);
+  });
+  document.getElementById('layout').style.display    = view === 'table'    ? 'flex' : 'none';
+  document.getElementById('calendar-view').style.display = view === 'calendar' ? 'flex' : 'none';
+  document.getElementById('signals-view').style.display  = view === 'signals'  ? 'flex' : 'none';
+
+  if (view === 'calendar') renderCalendar();
+  if (view === 'signals')  loadCandidates();
+}
+
+// ── CALENDAR VIEW ─────────────────────────────────────────────────────────
+function renderCalendar() {
+  const body = document.getElementById('calendar-body');
+  if (!body) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + 14);
+  const cutoffStr = cutoff.toISOString().slice(0, 10);
+
+  // Gather projects that have a next_step_due date
+  const items = (allProjects || [])
+    .filter(p => {
+      const d = p.next_step_due || p['Next Step Due'] || '';
+      if (!d) return false;
+      const ds = d.slice(0, 10);
+      return ds >= '2020-01-01'; // any real date
+    })
+    .map(p => ({
+      project: p,
+      due: (p.next_step_due || p['Next Step Due'] || '').slice(0, 10),
+      action: p.what_matt_needs_to_do || p['What Matt Needs to Do'] || '',
+      priority: (p.priority || p['Priority'] || 'P3').toUpperCase(),
+      name: p.project_name || p['Project Name'] || '',
+    }))
+    .sort((a, b) => a.due.localeCompare(b.due));
+
+  if (!items.length) {
+    body.innerHTML = '<div class="cal-empty">No upcoming deadlines found.<br>Projects with a "Next Step Due" date will appear here.</div>';
+    return;
+  }
+
+  // Group by date bucket: overdue / today / future dates
+  const groups = {};
+  items.forEach(item => {
+    let label;
+    if (item.due < today) label = '⚠ Overdue';
+    else if (item.due === today) label = 'Today · ' + _fmtCalDate(item.due);
+    else label = _fmtCalDate(item.due);
+    (groups[label] = groups[label] || []).push(item);
+  });
+
+  const P_COLORS = { P1: '#dc2626', P2: '#d97706', P3: '#2563eb', P4: '#6b7280' };
+
+  let html = '';
+  Object.entries(groups).forEach(([label, group]) => {
+    const isOverdue = label.startsWith('⚠');
+    const isToday = label.startsWith('Today');
+    html += `<div class="cal-section">
+      <div class="cal-date-header ${isOverdue ? 'overdue' : isToday ? 'today' : ''}">${label}</div>`;
+    group.forEach(item => {
+      const color = P_COLORS[item.priority] || '#6b7280';
+      html += `<div class="cal-card" onclick="setView('table')">
+        <div class="cal-card-left">
+          <span class="priority-badge" style="background:${color};color:#fff;padding:2px 7px;border-radius:4px;font-size:0.68rem;font-weight:700;">${item.priority}</span>
+        </div>
+        <div class="cal-card-body">
+          <div class="cal-project-name">${_esc(item.name)}</div>
+          ${item.action ? `<div class="cal-action">${_esc(item.action)}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  body.innerHTML = html;
+}
+
+function _fmtCalDate(ds) {
+  if (!ds) return '';
+  const [y, m, d] = ds.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function _esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── SIGNALS / CANDIDATES VIEW ─────────────────────────────────────────────
+let _candidates = [];
+
+async function loadCandidates() {
+  const body = document.getElementById('signals-body');
+  if (!body) return;
+  body.innerHTML = '<div class="signal-empty">Loading signals…</div>';
+
+  try {
+    const resp = await fetch('/api/candidates');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    _candidates = data.candidates || [];
+    renderCandidates();
+  } catch (e) {
+    body.innerHTML = `<div class="signal-empty">Signals not available: ${_esc(e.message)}<br><small>Run a sync first to generate signal data.</small></div>`;
+  }
+}
+
+function renderCandidates() {
+  const body = document.getElementById('signals-body');
+  if (!body) return;
+
+  if (!_candidates.length) {
+    body.innerHTML = '<div class="signal-empty">No unmatched signals from the last sync.<br>All signals were matched to existing projects.</div>';
+    document.getElementById('candidates-badge').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('candidates-badge').style.display = 'inline-block';
+  document.getElementById('candidates-badge').textContent = _candidates.length;
+
+  const bySource = {};
+  _candidates.forEach(s => {
+    const src = s.source || 'unknown';
+    (bySource[src] = bySource[src] || []).push(s);
+  });
+
+  const SOURCE_LABELS = { gmail: 'Email', calendar: 'Calendar', slack: 'Slack', unknown: 'Signal' };
+
+  let html = `<p style="font-size:0.8rem;color:var(--text-muted);margin:0 0 16px;">
+    ${_candidates.length} unmatched signal${_candidates.length !== 1 ? 's' : ''} from the last sync — possible new projects.
+  </p>`;
+
+  Object.entries(bySource).forEach(([src, signals]) => {
+    html += `<div class="signals-section-title">${SOURCE_LABELS[src] || src} · ${signals.length}</div>`;
+    signals.forEach(s => {
+      const subject = s.subject || s.title || s.channel || '(no subject)';
+      const sender  = s.sender || '';
+      const snippet = (s.content || '').slice(0, 200);
+      const date    = s.date || '';
+      const badge   = SOURCE_LABELS[src] || src;
+      html += `<div class="signal-card">
+        <div class="signal-card-header">
+          <span class="signal-source-badge">${_esc(badge)}</span>
+          <span class="signal-subject">${_esc(subject)}</span>
+          <span class="signal-date">${_esc(date)}</span>
+        </div>
+        ${sender ? `<div class="signal-sender">${_esc(sender)}</div>` : ''}
+        ${snippet ? `<div class="signal-snippet">${_esc(snippet)}</div>` : ''}
+      </div>`;
+    });
+  });
+  body.innerHTML = html;
+}
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 async function init() {

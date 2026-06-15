@@ -147,7 +147,8 @@ def main():
     print("  Matching signals to projects...")
     matcher = ProjectMatcher(active_projects)
     project_signals = matcher.match_all(all_signals, min_score=2)
-    print(f"  {len(project_signals)} projects with matched signals")
+    unmatched_signals = matcher.get_unmatched(all_signals, min_score=2)
+    print(f"  {len(project_signals)} projects with matched signals, {len(unmatched_signals)} unmatched")
 
     # -----------------------------------------------------------------------
     # 5. Generate actions for matched projects
@@ -224,6 +225,20 @@ def main():
         append_to_action_log(log_entry)
     except Exception as e:
         print(f"  Warning: action_log write failed: {e}")
+
+    # -----------------------------------------------------------------------
+    # 7b. Write unmatched signals to candidates tab
+    # -----------------------------------------------------------------------
+    try:
+        from scripts.sheets_client import write_candidates
+    except ImportError:
+        from sheets_client import write_candidates
+
+    try:
+        write_candidates(unmatched_signals)
+        print(f"  Candidates: wrote {len(unmatched_signals)} unmatched signals")
+    except Exception as e:
+        print(f"  Warning: candidates write failed: {e}")
 
     # -----------------------------------------------------------------------
     # 8. Send daily brief email

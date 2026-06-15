@@ -22,6 +22,7 @@ from scripts.sheets_client import (
     get_all_projects,
     update_project_fields,
     append_to_action_log,
+    get_candidates,
 )
 
 app = Flask(__name__)
@@ -130,6 +131,15 @@ def api_mark_done(row):
         cached.update(updates)
 
     return jsonify({"ok": True})
+
+
+@app.route("/api/candidates")
+def api_candidates():
+    try:
+        candidates = get_candidates()
+        return jsonify({"candidates": candidates, "count": len(candidates)})
+    except Exception as e:
+        return jsonify({"candidates": [], "count": 0, "error": str(e)})
 
 
 @app.route("/api/sync", methods=["POST"])

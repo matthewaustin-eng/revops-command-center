@@ -79,6 +79,35 @@ def update_project_fields(row_number, updates):
         ws.update_cells(cell_updates)
 
 
+CANDIDATES_TAB = "candidates"
+
+
+def write_candidates(signals):
+    """Overwrite the candidates tab with unmatched signals from the latest sync."""
+    ws = get_or_create_sheet(CANDIDATES_TAB, rows=500, cols=6)
+    ws.clear()
+    rows = [["source", "date", "subject", "sender", "content"]] + [
+        [
+            s.get("source", ""),
+            s.get("date", ""),
+            (s.get("subject") or s.get("title") or s.get("channel") or "")[:200],
+            s.get("sender", ""),
+            (s.get("content") or "")[:500],
+        ]
+        for s in signals
+    ]
+    ws.update('A1', rows)
+
+
+def get_candidates():
+    """Read unmatched signals from the candidates tab."""
+    try:
+        ws = get_sheet(CANDIDATES_TAB)
+        return ws.get_all_records(head=1)
+    except gspread.WorksheetNotFound:
+        return []
+
+
 def append_to_action_log(entry):
     ws = get_or_create_sheet("action_log")
     headers = ws.row_values(1)

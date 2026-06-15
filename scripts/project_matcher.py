@@ -110,3 +110,12 @@ class ProjectMatcher:
             })
 
         return dict(project_signals)
+
+    def get_unmatched(self, signals, min_score=2):
+        """Return signals that could not be confidently matched to any project."""
+        matched_ids = set()
+        for sig_list in self.match_all(signals, min_score).values():
+            for sig in sig_list:
+                if 'id' in sig:
+                    matched_ids.add(sig['id'])
+        return [s for s in signals if s.get('id') not in matched_ids]
